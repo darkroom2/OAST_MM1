@@ -1,6 +1,6 @@
 from itertools import product
 from json import loads, JSONDecodeError, dumps
-from logging import info
+from logging import info, DEBUG
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -36,19 +36,18 @@ class Simulation:
         #  wzrostem serwerow itp. ze wynik jest niezalezny od roznych rozkladow
         #  czasu obslugi
 
-        mi_values = self.config.get('mi_values', [1])
-        server_counts = self.config.get('server_counts', [5])
-        target_probabilities = self.config.get('blocking_probabilities', [0.2])
+        mi_values = self.config.get('mi_values', [0.6])
+        lam_values = self.config.get('lam_values', [1])
+        server_counts = self.config.get('server_counts', [1])
         sim_repetitions = self.config.get('simulation_repetitions', 10)
         info('Simulation config loaded')
 
         info(f'Running simulator with k = {sim_repetitions} repetitions for '
-             f'each combination of μ values, server counts and target '
-             f'probabilities')
-        with Pool() as pool:
-            combinations = product(target_probabilities, mi_values,
-                                   server_counts)
-            self.results = pool.map(self.simulate, combinations)
+             f'each combination of μ, λ and server count values')
+        combinations = product(mi_values, lam_values, server_counts)
+        self.results = [
+            self.simulate(combination) for combination in combinations
+        ]
 
         info(f'Results: {self.results}')
         Path(self.results_path).write_text(dumps(self.results))
@@ -59,45 +58,40 @@ class Simulation:
         time_limit = self.config.get('time_limit', 10)
         events_limit = self.config.get('events_limit', 10000)
 
-        target_probability, mi, servers = combination
+        mi, lam, servers = combination
 
-        target_rho = get_max_traffic(target_probability, servers,
-                                     show_plot=show_plots)
-        info(f'Max traffic ϱ = {target_rho}, for N = {servers} servers and '
-             f'P_block = {target_probability}')
+        rho = lam / mi
+        info(f'λ = {lam}, μ = {mi} ==> ϱ = {rho}')
 
-        lam = mi * target_rho
-        info(f'Calculated λ = {lam} for μ = {mi}')
-
-        simulator_results = {
-            'servers': servers,
-            'target_probability': target_probability,
-            'target_rho': target_rho,
+        simulation_results = {
             'mi': mi,
-            'lam': lam
+            'lam': lam,
+            'rho': rho
         }
-        simulated_probabilities = []
+
+        simulator_results = []
         for i in range(sim_repetitions):
             info(f'Running #{i + 1} simulation')
             sim = Simulator(lam=lam, mi=mi, servers=servers,
-                            time_limit=time_limit,
-                            events_limit=events_limit,
+                            time_limit=time_limit, events_limit=events_limit,
                             seed=self.rng.integers(999999))
             sim.run()
 
-            sim_prob = sim.get_result()
-            info(f'Simulated P_block = {sim_prob}')
+            sim_res = sim.get_result()
+            info(f'Simulated results = {sim_res}')
 
-            simulated_probabilities.append(sim_prob)
-        simulator_results['simulated_probabilities'] = simulated_probabilities
+            simulator_results.append(sim_res)
+        simulation_results['simulator_results'] = simulator_results
 
-        confidence_interval = t.interval(alpha=0.95,
-                                         df=len(simulated_probabilities) - 1,
-                                         loc=mean(simulated_probabilities),
-                                         scale=sem(simulated_probabilities))
+        confidence_intervals = {
+            alpha: t.interval(alpha=alpha, df=len(simulator_results) - 1,
+                              loc=mean(simulator_results),
+                              scale=sem(simulator_results))
+            for alpha in [0.95, 0.99]
+        }
 
-        simulator_results['confidence_interval'] = confidence_interval
-        return simulator_results
+        simulation_results['confidence_intervals'] = confidence_intervals
+        return simulation_results
 
     def get_rng(self):
         seed = self.config.get('seed', 123)
@@ -111,32 +105,32 @@ class Simulation:
         if not results:
             results = self.load_json(self.results_path)
 
-        fix_servers_fix_prob = [
-            result for result in results if
-            result['servers'] == 9 and result['target_probability'] == 0.2
-        ]
-
-        fix_servers_fix_mi = [
-            result for result in results if
-            result['servers'] == 9 and result['mi'] == 0.4
-        ]
-
-        fix_prob_fix_mi = [
-            result for result in results if
-            result['target_probability'] == 0.2 and result['mi'] == 1
-        ]
+        # fix_servers_fix_prob = [
+        #     result for result in results if
+        #     result['servers'] == 9 and result['target_probability'] == 0.2
+        # ]
+        #
+        # fix_servers_fix_mi = [
+        #     result for result in results if
+        #     result['servers'] == 9 and result['mi'] == 0.4
+        # ]
+        #
+        # fix_prob_fix_mi = [
+        #     result for result in results if
+        #     result['target_probability'] == 0.2 and result['mi'] == 1
+        # ]
 
 
 def main():
     """Testing simulator."""
 
-    logger = setup_logger()
+    logger = setup_logger(level=DEBUG)
 
     logger.info('Starting simulation')
 
     sim = Simulation('config/config.json', 'results.json')
     sim.run()
-    # sim.show_results()
+    sim.show_results()
 
 
 if __name__ == '__main__':

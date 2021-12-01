@@ -16,7 +16,7 @@ class Simulator:
         self.busy = 0  # Busy servers counter
         self.start_time = 0  # Simulation start time
         self.arrivals = 0  # Incoming packet counter
-        self.blocked = 0  # Rejected packet counter
+        self.queued = 0  # Queue length counter
         self.served = 0  # Served packet counter
         self.event_list: List[Tuple] = []  # Event list
         self.rng = default_rng(seed)  # Random number generator
@@ -25,7 +25,7 @@ class Simulator:
     def end(self):
         """End simulation condition."""
 
-        return (time() - self.start_time > self.time_limit) or \
+        return ((time() - self.start_time) > self.time_limit) or \
                (self.arrivals >= self.events_limit)
 
     def run(self):
@@ -54,23 +54,45 @@ class Simulator:
                     self.busy += 1
                     debug(f'Adding to event list {eos_ev}')
                 else:
-                    self.blocked += 1
+                    # TODO: SPRAWDZIC CZY SIE NIE JEBIE TU PRZY UZYCIU
+                    #  last_end_of_service_time(), latwiej bedzie bez
+                    #  multiprocessingu i poola...
+                    wait_ev = (f'waiting_{self.queued + 1}',
+                               self.earliest_eos_time())
+                    self.event_list.append(wait_ev)
+                    self.queued += 1
+                    debug(f'Adding to event list {wait_ev}')
 
                 new_ev = ('arrival', ev_time + self.arrival_time())
                 self.event_list.append(new_ev)
                 self.arrivals += 1
                 debug(f'Adding to event list {new_ev}')
 
+            elif 'waiting' in ev_type:
+                if not self.servers_busy():
+                    eos_ev = (f'end_of_service_{self.busy + 1}',
+                              ev_time + self.serve_time())
+                    self.event_list.append(eos_ev)
+                    self.busy += 1
+                    self.queued -= 1
+                    debug(f'Adding to event list {eos_ev}')
+                else:
+                    wait_ev = (f'{ev_type}', self.earliest_eos_time())
+                    self.event_list.append(wait_ev)
+                    debug(f'Updating in event list {wait_ev}')
+
             elif 'end_of_service' in ev_type:
                 self.served += 1
                 self.busy -= 1
+                debug(f'{ev_type}: Incrementing served, decrementing busy')
 
-        self.blocking_probability = self.blocked / self.arrivals
+        # TODO: statystyki z githuba podjebac KAROLINAAAAA
+        self.blocking_probability = self.queued / self.arrivals
 
         info(f'Results: '
              f'arrivals = {self.arrivals}, '
              f'served = {self.served}, '
-             f'blocked = {self.blocked}, '
+             f'queued = {self.queued}, '
              f'P_block = {self.blocking_probability}')
 
     def pop_list(self):
@@ -85,10 +107,23 @@ class Simulator:
         # Return the event
         return ev
 
+    def earliest_eos_time(self):
+        """Returns time of earliest end_of_service event."""
+
+        # Filter all end_of_service events
+        eos_events = list(
+            filter(
+                lambda x: 'end_of_service' in x[0], self.event_list
+            )
+        )
+        # Sort ascending by time
+        eos_events.sort(key=lambda x: x[1])
+        # Take eos event with earliest time and return its time
+        return eos_events[0][1]
+
     def serve_time(self):
         """Generate serving time."""
 
-        # TODO: rozne rozklady prawd. (policzyc wartosc srednia np. lognormala)
         return self.rng.exponential(1 / self.mi)
 
     def arrival_time(self):
