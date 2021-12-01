@@ -8,8 +8,8 @@ from numpy import mean
 from numpy.random import default_rng
 from scipy.stats import t, sem
 
-from simulator.simulator import Simulator
-from simulator.utils import setup_logger, get_max_traffic
+from simulation.simulator import Simulator
+from simulation.utils import setup_logger, get_max_traffic
 
 
 class Simulation:
@@ -122,7 +122,7 @@ class Simulation:
 
 
 def main():
-    """Testing simulator."""
+    """Testing simulation."""
 
     logger = setup_logger(level=DEBUG)
 
