@@ -1,10 +1,10 @@
 {
-  "mi_values": [1],
-  "lam_values": [0.6],
+  "mi_values": [0.9, 1],
+  "lam_values": [0.5, 0.6],
   "server_counts": [1],
-  "simulation_repetitions": 1,
+  "simulation_repetitions": 5,
   "time_limit": 60,
-  "events_limit": 500,
+  "events_limit": 3000,
   "seed": 123,
   "show_plots": false
 }
