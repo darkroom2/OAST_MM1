@@ -1,10 +1,12 @@
 from itertools import product
 from json import loads, JSONDecodeError, dumps
-from logging import info, DEBUG
+from logging import info
 from multiprocessing import Pool
 from pathlib import Path
+from statistics import mean
 
 from numpy.random import default_rng
+from scipy.stats import t, sem
 
 from simulation.simulator import Simulator
 from simulation.utils import setup_logger
@@ -70,16 +72,31 @@ class Simulation:
             sim_res = sim.get_result()
 
             simulator_results.append(sim_res)
-        simulation_results['simulator_results'] = simulator_results
 
-        # confidence_intervals = {
-        #     alpha: t.interval(alpha=alpha, df=len(simulator_results) - 1,
-        #                       loc=mean(simulator_results),
-        #                       scale=sem(simulator_results))
-        #     for alpha in [0.95, 0.99]
-        # }
-        #
-        # simulation_results['confidence_intervals'] = confidence_intervals
+        # Convert the list of dicts, to a dict of lists
+        result_keys = list(simulator_results[0].keys())
+        aggregated_dict = {k: [] for k in result_keys}
+        for res in simulator_results:
+            for k, v in res.items():
+                aggregated_dict[k].append(v)
+
+        # Confidence intervals computed from dict of lists (N simulations)
+        confidence_intervals_dict = {}
+        for k, v in aggregated_dict.items():
+            if 'real' not in k:
+                confidence_intervals = {
+                    alpha: t.interval(alpha=alpha, df=len(v) - 1, loc=mean(v),
+                                      scale=sem(v)) for alpha in [0.95, 0.99]
+                }
+                key_name = k.replace('mean_', '')
+                confidence_intervals_dict[key_name] = confidence_intervals
+        simulation_results['confidence_intervals'] = confidence_intervals_dict
+
+        # Take mean of aggregated data
+        for k, v in aggregated_dict.items():
+            aggregated_dict[k] = mean(v)
+        simulation_results['simulator_mean_results'] = aggregated_dict
+
         return simulation_results
 
     def get_rng(self):
