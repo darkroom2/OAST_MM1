@@ -1,4 +1,5 @@
-from logging import info, debug
+from logging import debug
+from statistics import mean
 from time import time
 from typing import List, Tuple
 
@@ -19,9 +20,13 @@ class Simulator:
         self.queued = 0  # Queue length counter
         self.served = 0  # Served clients counter
         self.event_list: List[Tuple] = []  # Event list
-        self.history_list: List[Tuple] = []  # Historical event list
         self.rng = default_rng(seed)  # Random number generator
-        self.results = {}  # Dict with statistics for each event
+        self.event_history = {}  # Dict with statistics for each event
+        self.stats = {  # Statistics measurements
+            'in_queue': [],
+            'in_system': [],
+            'busy': []
+        }
 
     def end(self):
         """End simulation condition."""
@@ -48,6 +53,9 @@ class Simulator:
             debug(f'New event appeared {ev}')
 
             if ev_type == 'arrival':
+                # What the queue looks like before the event
+                self.update_stats()
+
                 if not self.servers_busy():
                     self.busy += 1
                     eos_ev = (f'end_of_service', ev_time + self.serve_time(),
@@ -97,10 +105,17 @@ class Simulator:
         self.event_list = self.event_list[1:]
 
         # Statistics update
-        if self.results.get(ev[2], False):
-            self.results[ev[2]].append(ev)
+        ev_type, ev_time, ev_id = ev
+        if self.event_history.get(ev_id):
+            ev_slot = self.event_history[ev_id]
+            if ev_slot.get(ev_type):
+                ev_slot[ev_type].append(ev_time)
+            else:
+                ev_slot[ev_type] = [ev_time]
         else:
-            self.results[ev[2]] = [ev]
+            self.event_history[ev_id] = {
+                ev_type: [ev_time]
+            }
 
         # Return the event
         return ev
@@ -133,8 +148,66 @@ class Simulator:
         """Check if server is busy by comparing number of end_of_service
         events with number of servers."""
 
-        return self.busy == self.servers
+        return self.busy >= self.servers
 
     def get_result(self):
-        # TODO: zrobic zeby dalo sie liczyc przedzialy ufnosci i srednia z K symulacji roznych parametrow
-        return self.history_list
+        # TODO: zrobic zeby dalo sie liczyc przedzialy ufnosci i srednia z K
+        #  symulacji roznych parametrow
+        service_times = []
+        system_times = []
+        filtered_history = [v for v in self.event_history.values() if
+                            v.get('end_of_service')]
+        for ev_dict in filtered_history:
+            last_arrival = ev_dict.get('arrival', [0])[-1]
+            last_waiting = ev_dict.get('waiting', [0])[-1]
+            last_eos = ev_dict.get('end_of_service', [0])[-1]
+
+            # czas obsługi = ev.eos - ev.last_waitin lub
+            # ev.eos - ev.arrival
+            if not last_waiting:
+                service_times.append(last_eos - last_arrival)
+            else:
+                service_times.append(last_eos - last_waiting)
+
+            # czas przebywania w systemie = ev.eos - ev.arrival
+            system_times.append(last_eos - last_arrival)
+
+        # Średnia ilosc klientów w kolejce
+        mean_clients_in_queue = mean(self.stats['in_queue'])
+        real_mean_clients_in_queue = (self.lam / self.mi) ** 2 / (
+                    1 - self.lam / self.mi)
+
+        # Średnia ilosc klientów w systemie
+        mean_clients_in_system = mean(self.stats['in_system'])
+        real_mean_clients_in_system = (self.lam / self.mi) / (
+                    1 - self.lam / self.mi)
+
+        # Średni czas obsługi
+        mean_service_time = mean(service_times)
+        real_mean_service_time = 1 / self.mi
+
+        # Średni czas przebywania w systemie
+        mean_system_time = mean(system_times)
+        real_mean_system_time = 1 / (self.mi - self.lam)
+
+        # Prawd. że serwer pusty
+        server_empty_prob = 1 - mean(self.stats['busy'])
+        real_server_empty_prob = 1 - self.lam / self.mi
+
+        return {
+            'mean_clients_in_queue': mean_clients_in_queue,
+            'real_mean_clients_in_queue': real_mean_clients_in_queue,
+            'mean_clients_in_system': mean_clients_in_system,
+            'real_mean_clients_in_system': real_mean_clients_in_system,
+            'mean_service_time': mean_service_time,
+            'real_mean_service_time': real_mean_service_time,
+            'mean_system_time': mean_system_time,
+            'real_mean_system_time': real_mean_system_time,
+            'server_empty_prob': server_empty_prob,
+            'real_server_empty_prob': real_server_empty_prob
+        }
+
+    def update_stats(self):
+        self.stats['in_system'].append(self.queued + self.busy)
+        self.stats['in_queue'].append(self.queued)
+        self.stats['busy'].append(self.busy)
