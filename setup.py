@@ -8,7 +8,6 @@ setup(
     author_email='rkomorowski97@gmail.com',
     install_requires=[
         'numpy',
-        'matplotlib',
         'scipy'
     ],
     packages=['simulation']

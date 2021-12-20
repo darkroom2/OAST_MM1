@@ -6,7 +6,7 @@ from pathlib import Path
 from statistics import mean
 
 from numpy.random import default_rng
-from scipy.stats import t, sem
+from scipy.stats import t, sem, norm
 
 from simulation.simulator import Simulator
 from simulation.utils import setup_logger
@@ -84,10 +84,18 @@ class Simulation:
         confidence_intervals_dict = {}
         for k, v in aggregated_dict.items():
             if 'real' not in k:
-                confidence_intervals = {
-                    alpha: t.interval(alpha=alpha, df=len(v) - 1, loc=mean(v),
-                                      scale=sem(v)) for alpha in [0.95, 0.99]
-                }
+                if sim_repetitions >= 30:
+                    confidence_intervals = {
+                        alpha: norm.interval(alpha=alpha, loc=mean(v),
+                                             scale=sem(v))
+                        for alpha in [0.95, 0.99]
+                    }
+                else:
+                    confidence_intervals = {
+                        alpha: t.interval(alpha=alpha, df=len(v) - 1,
+                                          loc=mean(v), scale=sem(v))
+                        for alpha in [0.95, 0.99]
+                    }
                 key_name = k.replace('mean_', '')
                 confidence_intervals_dict[key_name] = confidence_intervals
         simulation_results['confidence_intervals'] = confidence_intervals_dict
