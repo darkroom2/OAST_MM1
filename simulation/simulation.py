@@ -11,6 +11,8 @@ from scipy.stats import t, sem, norm
 from simulation.simulator import Simulator
 from simulation.utils import setup_logger
 
+logger = setup_logger()
+
 
 class Simulation:
     def __init__(self, config_path, results_path):
@@ -118,12 +120,12 @@ class Simulation:
 def main():
     """Testing simulation."""
 
-    logger = setup_logger()
-
     logger.info('Starting simulation')
 
     sim = Simulation('config/config.json', 'results.json')
     sim.run()
+
+    logger.info('Simulation ended')
 
 
 if __name__ == '__main__':
