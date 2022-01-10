@@ -151,8 +151,6 @@ class Simulator:
         return self.busy >= self.servers
 
     def get_result(self):
-        # TODO: zrobic zeby dalo sie liczyc przedzialy ufnosci i srednia z K
-        #  symulacji roznych parametrow
         service_times = []
         system_times = []
         filtered_history = [v for v in self.event_history.values() if

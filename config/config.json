@@ -3,7 +3,7 @@
   "lam_values": [0.1, 0.2, 0.3, 0.4, 0.5],
   "server_counts": [1],
   "simulation_repetitions": 40,
-  "time_limit": 60,
+  "time_limit": 3600,
   "events_limit": 50000,
   "seed": 123,
   "show_plots": false
