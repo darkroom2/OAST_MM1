@@ -35,27 +35,30 @@ class Simulation:
     def run(self):
         mi_values = self.config.get('mi_values', [0.6])
         lam_values = self.config.get('lam_values', [1])
+        on_values = self.config.get('on_values', [40])
+        off_values = self.config.get('off_values', [35])
         server_counts = self.config.get('server_counts', [1])
         sim_repetitions = self.config.get('simulation_repetitions', 10)
         info('Simulation config loaded')
 
         info(f'Running simulator with k = {sim_repetitions} repetitions for '
-             f'each combination of μ, λ and server count values')
-        with Pool() as pool:
-            combinations = product(mi_values, lam_values, server_counts)
-            self.results = pool.map(self.simulate, combinations)
+             f'each combination of mi, lam and server count values')
+        # with Pool() as pool:
+        combinations = product(mi_values, lam_values, on_values, off_values,
+                               server_counts)
+        self.results = map(self.simulate, combinations)
 
-        Path(self.results_path).write_text(dumps(self.results))
+        Path(self.results_path).write_text(dumps(list(self.results)))
 
     def simulate(self, combination):
         sim_repetitions = self.config.get('simulation_repetitions', 10)
         time_limit = self.config.get('time_limit', 10)
         events_limit = self.config.get('events_limit', 10000)
 
-        mi, lam, servers = combination
+        mi, lam, on_time, off_time, servers = combination
 
         rho = lam / mi
-        info(f'λ = {lam}, μ = {mi} ==> ϱ = {rho}')
+        info(f'lam = {lam}, mi = {mi} ==> rho = {rho}')
 
         simulation_results = {
             'mi': mi,
@@ -66,8 +69,9 @@ class Simulation:
         simulator_results = []
         for i in range(sim_repetitions):
             info(f'Running #{i + 1} simulation')
-            sim = Simulator(lam=lam, mi=mi, servers=servers,
-                            time_limit=time_limit, events_limit=events_limit,
+            sim = Simulator(lam=lam, mi=mi, on_time=on_time, off_time=off_time,
+                            servers=servers, time_limit=time_limit,
+                            events_limit=events_limit,
                             seed=self.rng.integers(999999))
             sim.run()
 
