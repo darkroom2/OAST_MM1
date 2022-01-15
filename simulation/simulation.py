@@ -33,6 +33,7 @@ class Simulation:
             return {}
 
     def run(self):
+        multithreaded = self.config.get('multithreaded', False)
         mi_values = self.config.get('mi_values', [0.6])
         lam_values = self.config.get('lam_values', [1])
         on_values = self.config.get('on_values', [40])
@@ -43,11 +44,14 @@ class Simulation:
 
         info(f'Running simulator with k = {sim_repetitions} repetitions for '
              f'each combination of mi, lam and server count values')
-        # with Pool() as pool:
+
         combinations = product(mi_values, lam_values, on_values, off_values,
                                server_counts)
-        self.results = map(self.simulate, combinations)
-
+        if multithreaded:
+            with Pool() as pool:
+                self.results = pool.map(self.simulate, combinations)
+        else:
+            self.results = map(self.simulate, combinations)
         Path(self.results_path).write_text(dumps(list(self.results)))
 
     def simulate(self, combination):
@@ -71,7 +75,7 @@ class Simulation:
             info(f'Running #{i + 1} simulation')
             sim = Simulator(lam=lam, mi=mi, on_time=on_time, off_time=off_time,
                             servers=servers, time_limit=time_limit,
-                            events_limit=events_limit,
+                            events_limit=events_limit, variant='B',
                             seed=self.rng.integers(999999))
             sim.run()
 

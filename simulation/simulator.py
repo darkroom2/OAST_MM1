@@ -8,7 +8,8 @@ from numpy.random import default_rng
 
 class Simulator:
     def __init__(self, lam: float, mi: float, on_time: float, off_time: float,
-                 servers: int, time_limit: float, events_limit: int, seed: int):
+                 servers: int, time_limit: float, events_limit: int, seed: int,
+                 variant: str):
         self.lam = lam  # Lambda
         self.mi = mi  # Mi
         self.on_time_param = on_time  # On time
@@ -16,7 +17,8 @@ class Simulator:
         self.servers = servers  # Number of servers
         self.time_limit = time_limit  # Max simulation time
         self.events_limit = events_limit  # Max number of events
-        self.running = True  # Busy servers counter
+        self.running = True  # Server status
+        self.variant = variant  # Busy servers counter
         self.busy = 0  # Busy servers counter
         self.start_time = 0  # Simulation start time
         self.arrivals = 0  # Incoming clients counter
@@ -44,7 +46,7 @@ class Simulator:
         self.start_time = time()
 
         # Add primary events to the list
-        ev = ('server_on', self.start_time + self.on_time(), 0)
+        ev = ('server_off', self.start_time + self.on_time(), 0)
         self.event_list.append(ev)
         debug(f'Adding to event list {ev}')
 
@@ -63,7 +65,7 @@ class Simulator:
                 # What the queue looks like before the event
                 self.update_stats()
 
-                if not self.servers_busy():
+                if not self.servers_busy() and self.running:
                     self.busy += 1
                     eos_ev = (f'end_of_service', ev_time + self.serve_time(),
                               ev_id)
@@ -71,7 +73,8 @@ class Simulator:
                     debug(f'Adding to event list {eos_ev}')
                 else:
                     self.queued += 1
-                    wait_ev = (f'waiting', self.earliest_eos_time(), ev_id)
+                    wait_ev = (f'waiting', self.earliest_available_time(),
+                               ev_id)
                     self.event_list.append(wait_ev)
                     debug(f'Adding to event list {wait_ev}')
 
@@ -81,8 +84,8 @@ class Simulator:
                 self.event_list.append(new_ev)
                 debug(f'Adding to event list {new_ev}')
 
-            elif 'waiting' in ev_type:
-                if not self.servers_busy():
+            elif ev_type == 'waiting':
+                if not self.servers_busy() and self.running:
                     self.busy += 1
                     self.queued -= 1
                     eos_ev = (f'end_of_service', ev_time + self.serve_time(),
@@ -90,25 +93,34 @@ class Simulator:
                     self.event_list.append(eos_ev)
                     debug(f'Adding to event list {eos_ev}')
                 else:
-                    wait_ev = (f'{ev_type}', self.earliest_eos_time(), ev_id)
+                    wait_ev = (f'{ev_type}', self.earliest_available_time(),
+                               ev_id)
                     self.event_list.append(wait_ev)
                     debug(f'Updating in event list {wait_ev}')
 
-            elif 'end_of_service' in ev_type:
-                self.served += 1
-                self.busy -= 1
-                debug(f'{ev_type}: Incrementing served, decrementing busy')
+            elif ev_type == 'end_of_service':
+                if self.running:
+                    self.served += 1
+                    self.busy -= 1
+                    debug(f'{ev_type}: Incrementing served, decrementing busy')
+                else:
+                    remaining_time = self.get_remaining_time(ev_type, ev_time,
+                                                             ev_id)
+                    eos_ev = (f'{ev_type}', self.earliest_available_time() +
+                              remaining_time, ev_id)
+                    self.event_list.append(eos_ev)
+                    debug(f'Updating in event list {eos_ev}')
 
             elif ev_type == 'server_off':
                 on_ev = ('server_on', ev_time + self.off_time(), ev_id)
                 self.event_list.append(on_ev)
-                self.running = True
+                self.running = False
                 debug(f'Scheduling server ON {on_ev}')
 
             elif ev_type == 'server_on':
                 off_ev = ('server_off', ev_time + self.on_time(), ev_id)
                 self.event_list.append(off_ev)
-                self.running = False
+                self.running = True
                 debug(f'Scheduling server OFF {off_ev}')
 
         debug('Simulation done')
@@ -139,19 +151,24 @@ class Simulator:
         # Return the event
         return ev
 
-    def earliest_eos_time(self):
-        """Returns time of earliest end_of_service event."""
+    def earliest_available_time(self):
+        """Returns time of the earliest end_of_service event or server_on
+        depending on variant and system status event."""
 
-        # Filter all end_of_service events
-        eos_events = list(
+        if self.running:
+            ev_type = 'end_of_service'
+        else:
+            ev_type = 'server_on'
+
+        events = list(
             filter(
-                lambda x: 'end_of_service' in x[0], self.event_list
+                lambda x: x[0] == ev_type, self.event_list
             )
         )
         # Sort ascending by time
-        eos_events.sort(key=lambda x: x[1])
-        # Take eos event with earliest time and return its time
-        return eos_events[0][1]
+        events.sort(key=lambda x: x[1])
+        # Take eos event with the earliest time and return its time
+        return events[0][1]
 
     def serve_time(self):
         """Generate serving time."""
@@ -264,3 +281,25 @@ class Simulator:
         self.stats['in_system'].append(self.queued + self.busy)
         self.stats['in_queue'].append(self.queued)
         self.stats['busy'].append(self.busy)
+
+    def get_remaining_time(self, ev_type, ev_time, ev_id):
+        # Wariant A: zapamiętanie pozostałego czasu obsługi i dokończenie po
+        #  wznowieniu serwera
+        # Wariant B: Retransmisja całości po wznowieniu serwera
+        events_history = self.event_history.get(ev_id, {})
+        serve_start_time = events_history.get('waiting', [0])[-1]
+        if not serve_start_time:
+            serve_start_time = events_history.get('arrival')[-1]
+
+        serve_time = ev_time - serve_start_time
+
+        if self.variant == 'B':
+            return serve_time
+
+        srv_on_history = self.event_history[0].get('server_on')
+
+        server_off_time = srv_on_history[-1]
+
+        remaining_time = ev_time - server_off_time
+
+        return remaining_time
