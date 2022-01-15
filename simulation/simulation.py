@@ -9,6 +9,7 @@ from numpy.random import default_rng
 from scipy.stats import t, sem, norm
 
 from simulation.simulator import Simulator
+from simulation.simulator_no_off import Simulator as SimulatorNoOff
 from simulation.utils import setup_logger
 
 logger = setup_logger()
@@ -74,10 +75,18 @@ class Simulation:
         simulator_results = []
         for i in range(sim_repetitions):
             info(f'Running #{i + 1} simulation')
-            sim = Simulator(lam=lam, mi=mi, on_time=on_time, off_time=off_time,
-                            servers=servers, time_limit=time_limit,
-                            events_limit=events_limit, variant=variant,
-                            seed=self.rng.integers(999999))
+            if variant in ['A', 'B']:
+                sim = Simulator(lam=lam, mi=mi, on_time=on_time,
+                                off_time=off_time, servers=servers,
+                                time_limit=time_limit,
+                                events_limit=events_limit, variant=variant,
+                                seed=self.rng.integers(999999))
+            else:
+                sim = SimulatorNoOff(lam=lam, mi=mi, servers=servers,
+                                     time_limit=time_limit,
+                                     events_limit=events_limit,
+                                     seed=self.rng.integers(999999))
+
             sim.run()
 
             sim_res = sim.get_result()

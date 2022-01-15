@@ -1,14 +1,13 @@
 {
-  "multithreaded": false,
-  "variant": "A",
+  "multithreaded": true,
+  "variant": "B",
   "mi_values": [8],
-  "lam_values": [0.5, 0.73, 0.97, 1.2, 1.43, 1.67, 1.9, 2.13, 2.37, 2.6, 2.83, 3.07, 3.3, 3.53, 3.77, 4],
+  "lam_values": [0.5, 1.2, 1.9, 2.6, 3.3, 4],
   "on_values": [40],
   "off_values": [35],
   "server_counts": [1],
   "simulation_repetitions": 40,
   "time_limit": 3600,
   "events_limit": 50000,
-  "seed": 123,
-  "show_plots": false
+  "seed": 123
 }
