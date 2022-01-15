@@ -236,14 +236,14 @@ class Simulator:
         real_mean_service_time = 1 / self.mi
 
         # Prawdopodobieństwo, że serwer włączony lub wyłączony
-        on_times = self.event_history[0].get('server_on')
-        off_times = self.event_history[0].get('server_off')
+        on_times = self.event_history[0].get('server_off')
+        off_times = self.event_history[0].get('server_on')
         if len(off_times) != len(on_times):
             on_times = on_times[:-1]
         on_sum = sum(off_times) - sum(on_times)
         off_sum = sum(on_times[1:]) - sum(off_times[:-1])
-        p_on = on_sum / simulation_time
-        p_off = off_sum / simulation_time
+        p_on = on_sum / (on_sum + off_sum)
+        p_off = off_sum / (on_sum + off_sum)
 
         on_off_sum = self.on_time_param + self.off_time_param
         real_p_on = self.on_time_param / on_off_sum
@@ -252,29 +252,17 @@ class Simulator:
         # Średni czas przebywania w systemie
         mean_system_time = mean(system_times)
 
-        ro_prim = self.lam / self.mi / p_on
+        ro_prim = self.lam / self.mi / real_p_on
         real_mean_system_time = (ro_prim + self.lam * self.off_time_param *
-                                 p_off) / (1 - ro_prim) / self.lam
+                                 real_p_off) / (1 - ro_prim) / self.lam
 
         # Prawd. że serwer pusty
         server_empty_prob = 1 - mean(self.stats['busy'])
         real_server_empty_prob = 1 - self.lam / self.mi
 
         return {
-            'mean_clients_in_queue': mean_clients_in_queue,
-            'real_mean_clients_in_queue': real_mean_clients_in_queue,
-            'mean_clients_in_system': mean_clients_in_system,
-            'real_mean_clients_in_system': real_mean_clients_in_system,
-            'mean_service_time': mean_service_time,
-            'real_mean_service_time': real_mean_service_time,
             'mean_system_time': mean_system_time,
-            'real_mean_system_time': real_mean_system_time,
-            'server_empty_prob': server_empty_prob,
-            'real_server_empty_prob': real_server_empty_prob,
-            'p_on': p_on,
-            'real_p_on': real_p_on,
-            'p_off': p_off,
-            'real_p_off': real_p_off
+            'real_mean_system_time': real_mean_system_time
         }
 
     def update_stats(self):
@@ -296,7 +284,7 @@ class Simulator:
         if self.variant == 'B':
             return serve_time
 
-        srv_on_history = self.event_history[0].get('server_on')
+        srv_on_history = self.event_history.get(0).get('server_off')
 
         server_off_time = srv_on_history[-1]
 

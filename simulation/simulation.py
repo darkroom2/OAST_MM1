@@ -58,6 +58,7 @@ class Simulation:
         sim_repetitions = self.config.get('simulation_repetitions', 10)
         time_limit = self.config.get('time_limit', 10)
         events_limit = self.config.get('events_limit', 10000)
+        variant = self.config.get('variant', 'A')
 
         mi, lam, on_time, off_time, servers = combination
 
@@ -75,7 +76,7 @@ class Simulation:
             info(f'Running #{i + 1} simulation')
             sim = Simulator(lam=lam, mi=mi, on_time=on_time, off_time=off_time,
                             servers=servers, time_limit=time_limit,
-                            events_limit=events_limit, variant='B',
+                            events_limit=events_limit, variant=variant,
                             seed=self.rng.integers(999999))
             sim.run()
 
