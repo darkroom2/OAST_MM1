@@ -33,9 +33,11 @@ import numpy as np
 
 lams = np.array([dct['lam'] for dct in lst_of_dcts])
 mean_system_time = np.array([dct['mean_system_time'] for dct in lst_of_dcts])
+real_mean_system_time = np.array([dct['real_mean_system_time'] for dct in lst_of_dcts])
 ci_95 = np.array([dct['system_time']['0.95'] for dct in lst_of_dcts])
 ci_99 = np.array([dct['system_time']['0.99'] for dct in lst_of_dcts])
 
+plt.plot(lams, real_mean_system_time, color='purple', lw=2)
 plt.plot(lams, mean_system_time, color='black', lw=1)
 
 plt.fill_between(lams,
@@ -49,7 +51,10 @@ plt.fill_between(lams,
 
 pop_a = patches.Patch(color='green', label='Przedział ufności 0.95%')
 pop_b = patches.Patch(color='red', label='Przedział ufności 0.99%')
-plt.legend(handles=[pop_b, pop_a])
+pop_c = patches.Patch(linestyle='solid', color='purple',
+                      label='Estymata ze wzoru')
+pop_d = patches.Patch(linestyle='solid', color='black', label='Wynik symulacji')
+plt.legend(handles=[pop_c, pop_d, pop_b, pop_a])
 
 plt.title('Średnie opóźnienie w systemie z zaznaczonym przedziałem ufności')
 plt.xlabel(r'λ [$s^{-1}$]')
