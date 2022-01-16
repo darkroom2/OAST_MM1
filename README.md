@@ -45,9 +45,9 @@ You can also create your own json file with all needed parameters, for example:
 ```json
 {
   "multithreaded": true,
-  "variant": "B",
+  "variant": "BEZ",
   "mi_values": [8],
-  "lam_values": [0.5, 1.2, 1.9, 2.6, 3.3, 4],
+  "lam_values": [0.5, 0.87, 1.23, 1.6, 1.97, 2.33, 2.7, 3.07, 3.43, 3.8, 4.17, 4.53, 4.9, 5.27, 5.63, 6],
   "on_values": [40],
   "off_values": [35],
   "server_counts": [1],
@@ -63,8 +63,8 @@ You can also create your own json file with all needed parameters, for example:
 * `variant` - what logic of behavior of the system to use: _[A, B, BEZ]_
 * `mi_values` - values for mean service rate
 * `lam_values` - values for mean arrival rate
-* `on_values` - values for mean system on time
-* `off_values` - values for mean system off time
+* `on_values` - values for mean system on time, only for variants _A_ and _B_
+* `off_values` - values for mean system off time, only for variants _A_ and _B_
 * `server_counts` - values for server count parameter
 * `simulation_repetitions` - count of simulation repetitions
 * `time_limit` - time limit for each simulation
