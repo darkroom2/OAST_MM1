@@ -3,7 +3,7 @@ from pathlib import Path
 
 from pandas import DataFrame
 
-lst_of_dcts: list[dict] = loads(Path('config/z_wylaczeniami_wariant_A_part_1.json').read_bytes())
+lst_of_dcts: list[dict] = loads(Path('results.json').read_bytes())
 
 confidences = {}
 
@@ -33,7 +33,8 @@ import numpy as np
 
 lams = np.array([dct['lam'] for dct in lst_of_dcts])
 mean_system_time = np.array([dct['mean_system_time'] for dct in lst_of_dcts])
-real_mean_system_time = np.array([dct['real_mean_system_time'] for dct in lst_of_dcts])
+real_mean_system_time = np.array([dct['real_mean_system_time']
+                                  for dct in lst_of_dcts])
 ci_95 = np.array([dct['system_time']['0.95'] for dct in lst_of_dcts])
 ci_99 = np.array([dct['system_time']['0.99'] for dct in lst_of_dcts])
 
@@ -59,9 +60,8 @@ plt.legend(handles=[pop_c, pop_d, pop_b, pop_a])
 plt.title('Średnie opóźnienie w systemie z zaznaczonym przedziałem ufności')
 plt.xlabel(r'λ [$s^{-1}$]')
 plt.ylabel('Średnie opóźnienie [s]')
-plt.savefig('wariant_A_opoznienia.svg')
+plt.savefig('opoznienia.svg')
 plt.show()
 
-
 df = DataFrame(lst_of_dcts)
-df.to_csv('wariant_A.csv', index=False)
+df.to_csv('wyniki.csv', index=False)

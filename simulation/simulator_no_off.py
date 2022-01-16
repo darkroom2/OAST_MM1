@@ -173,12 +173,12 @@ class Simulator:
         # Średnia ilosc klientów w kolejce
         mean_clients_in_queue = mean(self.stats['in_queue'])
         real_mean_clients_in_queue = (self.lam / self.mi) ** 2 / (
-                    1 - self.lam / self.mi)
+                1 - self.lam / self.mi)
 
         # Średnia ilosc klientów w systemie
         mean_clients_in_system = mean(self.stats['in_system'])
         real_mean_clients_in_system = (self.lam / self.mi) / (
-                    1 - self.lam / self.mi)
+                1 - self.lam / self.mi)
 
         # Średni czas obsługi
         mean_service_time = mean(service_times)
